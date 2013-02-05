@@ -1,32 +1,29 @@
 # -*- coding: utf-8 -*-
 """
-flaskext.couchdb
-================
-This module provides utilities to make using Flask with the CouchDB database
-server easier.
+
+flask_couchdb
+~~~~~~~~~~~~~
+
+This package provides utilities to make using Flask with a 
+CouchDB database server easier.
 
 :copyright: 2010 Matthew "LeafStorm" Frazier
 :license:   MIT/X11, see LICENSE for details
+
 """
 
-# needed to properly import the main CouchDB module
-# wish they would have required absolute imports from the start
-from __future__ import absolute_import
+import itertools
 import couchdb
 import couchdb.old_mapping as old_mapping
-import itertools
 from couchdb.client import Row, ViewResults
 from couchdb.design import ViewDefinition as OldViewDefinition
-
-# easier than manually assigning them
-from couchdb.old_mapping import (Field, TextField, FloatField, IntegerField,
-                             LongField, BooleanField, DecimalField, DateField,
-                             DateTimeField, TimeField, DictField, ListField,
-                             Mapping, DEFAULT)
 from flask import g, current_app, json, abort
 
+from flask_couchdb.document import *
+from flask_couchdb.document import __all__ as document_all
+
 __all__ = ['CouchDBManager', 'ViewDefinition', 'Row', 'paginate']
-__all__.extend(old_mapping.__all__)
+__all__.extend( document_all )
 
 
 ### The manager class
@@ -44,6 +41,10 @@ class CouchDBManager(object):
         self.dc_viewdefs = {}
         self.general_viewdefs = []
         self.sync_callbacks = []
+        self.server_url = None
+        self.db_name = None
+        self.server = None
+        self.db = None
     
     def all_viewdefs(self):
         """
@@ -100,7 +101,7 @@ class CouchDBManager(object):
         """
         self.sync_callbacks.append(fn)
     
-    def connect_db(self, app):
+    def connect_db(self, app=None):
         """
         This connects to the database for the given app. It presupposes that
         the database has already been synced, and as such an error will be
@@ -108,12 +109,9 @@ class CouchDBManager(object):
         
         :param app: The app to get the settings from.
         """
-        server_url = app.config['COUCHDB_SERVER']
-        db_name = app.config['COUCHDB_DATABASE']
-        server = couchdb.Server(server_url)
-        return server[db_name]
+        return self._db_for_app(app)
     
-    def sync(self, app):
+    def sync(self, app=None):
         """
         This syncs the database for the given app. It will first make sure the
         database exists, then synchronize all the views and run all the
@@ -126,20 +124,46 @@ class CouchDBManager(object):
         
         :param app: The application to synchronize with.
         """
-        server_url = app.config['COUCHDB_SERVER']
-        db_name = app.config['COUCHDB_DATABASE']
-        server = couchdb.Server(server_url)
-        if db_name not in server:
-            db = server.create(db_name)
-        else:
-            db = server[db_name]
+        db = self._db_for_app(app)
+
         OldViewDefinition.sync_many(
             db, tuple(self.all_viewdefs()),
             callback=getattr(self, 'update_design_doc', None)
         )
         for callback in self.sync_callbacks:
             callback(db)
-    
+
+    def _db_for_app(self,app):
+        """
+        If app has a different server/db configuration than what was used in
+        setup, the database will be setup on the requested server.
+
+        If not, the default database will be used, thus avoiding unnecessary
+        HEAD transactions to the couchdb server.
+        """
+        assert self.db is not None
+        server_url = self.server_url
+        db_name = self.db_name
+        server = self.server
+        db = self.db
+        update_db = False
+
+        if app is not None:
+           server_url = app.config['COUCHDB_SERVER']
+           db_name = app.config['COUCHDB_DATABASE']
+
+        if server_url != self.server_url:
+           server = couchdb.Server(server_url)
+           update_db = True
+
+        if db_name != self.db_name or update_db:
+           if db_name not in server:
+              db = server.create(db_name)
+           else:
+              db = server[db_name]
+
+        return db
+
     def setup(self, app):
         """
         This method sets up the request/response handlers needed to connect to
@@ -147,6 +171,15 @@ class CouchDBManager(object):
         
         :param app: The application to set up.
         """
+
+        self.server_url = app.config.get('COUCHDB_SERVER','http://localhost:5984/')
+        self.db_name = app.config.get('COUCHDB_DATABASE', app.name.lower())
+        self.server = couchdb.Server(self.server_url)
+        if self.db_name not in self.server:
+           self.db = self.server.create(self.db_name)
+        else:
+           self.db = self.server[self.db_name]
+        
         app.before_request(self.request_start)
         app.after_request(self.request_end)
     
@@ -161,51 +194,6 @@ class CouchDBManager(object):
 
 
 ### Jury-rigged CouchDB classes
-
-class Document(old_mapping.Document):
-    """
-    This class can be used to represent a single "type" of document. You can
-    use this to more conveniently represent a JSON structure as a Python
-    object in the style of an object-relational mapper.
-    
-    You populate a class with instances of `Field` for all the attributes you
-    want to use on the class. In addition, if you set the `doc_type`
-    attribute on the class, every document will have a `doc_type` field
-    automatically attached to it with that value. That way, you can tell
-    different document types apart in views.
-    """
-    def __init__(self, *args, **kwargs):
-        old_mapping.Document.__init__(self, *args, **kwargs)
-        cls = type(self)
-        if hasattr(cls, 'doc_type'):
-            self._data['doc_type'] = cls.doc_type
-    
-    @classmethod
-    def load(cls, id, db=None):
-        """
-        This is used to retrieve a specific document from the database. If a
-        database is not given, the thread-local database (``g.couch``) is
-        used. 
-        
-        For compatibility with code used to the parameter ordering used in the
-        original CouchDB library, the parameters can be given in reverse
-        order.
-        
-        :param id: The document ID to load.
-        :param db: The database to use. Optional.
-        """
-        if isinstance(id, couchdb.Database):
-            id, db = db, id
-        return super(Document, cls).load(db or g.couch, id)
-    
-    def store(self, db=None):
-        """
-        This saves the document to the database. If a database is not given,
-        the thread-local database (``g.couch``) is used.
-        
-        :param db: The database to use. Optional.
-        """
-        return old_mapping.Document.store(self, db or g.couch)
 
 
 # just overridden to use the thread database
