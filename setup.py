@@ -31,7 +31,7 @@ setup(
     zip_safe=False,
     platforms='any',
     dependency_links = [
-        'git://github.com/ryanolson/couchdb-python.git#egg=couchdb-python-0.9.1alphadev'
+        'git+git://github.com/ryanolson/couchdb-python.git#egg=couchdb-python-0.9.1alphadev'
     ],
     setup_requires=[
         'couchdb-python==0.9.1alphadev'
