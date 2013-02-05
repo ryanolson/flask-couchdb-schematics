@@ -13,19 +13,20 @@ server easier.
 # wish they would have required absolute imports from the start
 from __future__ import absolute_import
 import couchdb
-import couchdb.mapping as mapping
+import couchdb.old_mapping as old_mapping
 import itertools
 from couchdb.client import Row, ViewResults
 from couchdb.design import ViewDefinition as OldViewDefinition
+
 # easier than manually assigning them
-from couchdb.mapping import (Field, TextField, FloatField, IntegerField,
+from couchdb.old_mapping import (Field, TextField, FloatField, IntegerField,
                              LongField, BooleanField, DecimalField, DateField,
                              DateTimeField, TimeField, DictField, ListField,
                              Mapping, DEFAULT)
 from flask import g, current_app, json, abort
 
 __all__ = ['CouchDBManager', 'ViewDefinition', 'Row', 'paginate']
-__all__.extend(mapping.__all__)
+__all__.extend(old_mapping.__all__)
 
 
 ### The manager class
@@ -161,7 +162,7 @@ class CouchDBManager(object):
 
 ### Jury-rigged CouchDB classes
 
-class Document(mapping.Document):
+class Document(old_mapping.Document):
     """
     This class can be used to represent a single "type" of document. You can
     use this to more conveniently represent a JSON structure as a Python
@@ -174,7 +175,7 @@ class Document(mapping.Document):
     different document types apart in views.
     """
     def __init__(self, *args, **kwargs):
-        mapping.Document.__init__(self, *args, **kwargs)
+        old_mapping.Document.__init__(self, *args, **kwargs)
         cls = type(self)
         if hasattr(cls, 'doc_type'):
             self._data['doc_type'] = cls.doc_type
@@ -204,7 +205,7 @@ class Document(mapping.Document):
         
         :param db: The database to use. Optional.
         """
-        return mapping.Document.store(self, db or g.couch)
+        return old_mapping.Document.store(self, db or g.couch)
 
 
 # just overridden to use the thread database
@@ -240,9 +241,9 @@ class ViewDefinition(OldViewDefinition):
 # only overridden so it will use our ViewDefinition
 # this should be transparent to the user
 
-class ViewField(mapping.ViewField):
+class ViewField(old_mapping.ViewField):
     def __get__(self, instance, cls=None):
-        wrapper = mapping.ViewField.__get__(self, instance, cls).wrapper
+        wrapper = old_mapping.ViewField.__get__(self, instance, cls).wrapper
         return ViewDefinition(self.design, self.name, self.map_fun,
                               self.reduce_fun, language=self.language,
                               wrapper=wrapper, **self.defaults)

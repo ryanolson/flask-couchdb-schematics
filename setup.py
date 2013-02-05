@@ -19,7 +19,7 @@ from setuptools import setup
 
 setup(
     name='Flask-CouchDB',
-    version='0.2.1',
+    version='0.2.1alpha',
     url='http://bitbucket.org/leafstorm/flask-couchdb/',
     license='MIT',
     author='Matthew "LeafStorm" Frazier',
@@ -30,9 +30,15 @@ setup(
     namespace_packages=['flaskext'],
     zip_safe=False,
     platforms='any',
+    dependency_links = [
+        'git+git://github.com/ryanolson/couchdb-python.git#egg=couchdb-python-0.9.1alphadev'
+    ],
+    setup_requires=[
+        'couchdb-python==0.9.1alphadev'
+    ],
     install_requires=[
         'Flask',
-        'CouchDB>=0.7'
+        'couchdb-python==0.9.1alphadev'
     ],
     tests_require='nose',
     test_suite='nose.collector',

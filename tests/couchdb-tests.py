@@ -240,3 +240,4 @@ class TestFlaskextCouchDB(object):
     
     def test_paging_keys(self):
         pass
+
