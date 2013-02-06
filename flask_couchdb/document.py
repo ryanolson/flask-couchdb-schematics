@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+
+
 import couchdb
 import couchdb.mapping as mapping
 

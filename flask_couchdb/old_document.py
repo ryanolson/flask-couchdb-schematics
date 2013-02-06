@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import couchdb.old_mapping as old_mapping
 from couchdb.old_mapping import (Field, TextField, FloatField, IntegerField,
                              LongField, BooleanField, DecimalField, DateField,
