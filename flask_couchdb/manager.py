@@ -202,6 +202,6 @@ class CouchDBManager(object):
         if ctx is not None:
            if not hasattr(ctx, 'couch'):
               self.setup(current_app)
-              self.sync(current_app)
+              self.sync()
               ctx.couch = self 
            return ctx.couch.connect_db()
