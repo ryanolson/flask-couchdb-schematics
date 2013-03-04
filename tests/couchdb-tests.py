@@ -17,7 +17,7 @@ from __future__ import with_statement
 import os
 import couchdb
 import flask
-import flaskext.couchdb
+import flask.ext.couchdb
 from couchdb.http import ResourceNotFound
 from datetime import datetime
 
@@ -25,28 +25,28 @@ SERVER = os.environ.get('FLASKEXT_COUCHDB_SERVER', 'http://localhost:5984/')
 DATABASE = os.environ.get('FLASKEXT_COUCHDB_DATABASE', 'flaskext-test')
 
 
-class BlogPost(flaskext.couchdb.Document):
+class BlogPost(flask.ext.couchdb.Document):
     doc_type = 'blogpost'
     
-    title = flaskext.couchdb.TextField()
-    text = flaskext.couchdb.TextField()
-    author = flaskext.couchdb.TextField()
-    tags = flaskext.couchdb.ListField(flaskext.couchdb.TextField())
-    created = flaskext.couchdb.DateTimeField(default=datetime.now)
+    title = flask.ext.couchdb.StringType()
+    text = flask.ext.couchdb.StringType()
+    author = flask.ext.couchdb.StringType()
+    tags = flask.ext.couchdb.ListType(flask.ext.couchdb.StringType())
+    created = flask.ext.couchdb.DateTimeType(default=datetime.now)
     
-    all_posts = flaskext.couchdb.ViewField('blog', '''\
+    all_posts = flask.ext.couchdb.ViewField('blog', '''\
     function (doc) {
         if (doc.doc_type == 'blogpost') {
             emit(doc._id, doc);
         };
     }''')
-    by_author = flaskext.couchdb.ViewField('blog', '''\
+    by_author = flask.ext.couchdb.ViewField('blog', '''\
     function (doc) {
         if (doc.doc_type == 'blogpost') {
             emit(doc.author, doc);
         };
     }''')
-    tagged = flaskext.couchdb.ViewField('blog', '''\
+    tagged = flask.ext.couchdb.ViewField('blog', '''\
     function (doc) {
         if (doc.doc_type == 'blogpost') {
             doc.tags.forEach(function (tag) {
@@ -90,18 +90,19 @@ class TestFlaskextCouchDB(object):
             pass
     
     def test_g_couch(self):
-        manager = flaskext.couchdb.CouchDBManager()
+        manager = flask.ext.couchdb.CouchDBManager()
         manager.setup(self.app)
         print self.app.before_request_funcs, self.app.after_request_funcs
         with self.app.test_request_context('/'):
             self.app.preprocess_request()
             print dir(flask.g)
             assert hasattr(flask.g, 'couch')
-            assert isinstance(flask.g.couch, couchdb.Database)
+            assert isinstance(flask.g.couch, flask.ext.couchdb.CouchDBManager)
+            assert isinstance(flask.g.couch.db, couchdb.Database)
     
     def test_add_viewdef(self):
-        manager = flaskext.couchdb.CouchDBManager()
-        vd = flaskext.couchdb.ViewDefinition('tests', 'all', '''\
+        manager = flask.ext.couchdb.CouchDBManager()
+        vd = flask.ext.couchdb.ViewDefinition('tests', 'all', '''\
             function(doc) {
                 emit(doc._id, null);
             }''')
@@ -109,7 +110,7 @@ class TestFlaskextCouchDB(object):
         assert vd in tuple(manager.all_viewdefs())
     
     def test_add_document(self):
-        manager = flaskext.couchdb.CouchDBManager()
+        manager = flask.ext.couchdb.CouchDBManager()
         manager.add_document(BlogPost)
         viewdefs = list(manager.all_viewdefs())
         viewdefs.sort(key=lambda d: d.name)
@@ -118,7 +119,7 @@ class TestFlaskextCouchDB(object):
         assert viewdefs[2].name == 'tagged'
     
     def test_sync(self):
-        manager = flaskext.couchdb.CouchDBManager()
+        manager = flask.ext.couchdb.CouchDBManager()
         manager.add_document(BlogPost)
         server = couchdb.Server(SERVER)
         assert DATABASE not in server
@@ -130,7 +131,7 @@ class TestFlaskextCouchDB(object):
         assert 'by_author' in designdoc['views']
     
     def test_documents(self):
-        manager = flaskext.couchdb.CouchDBManager()
+        manager = flask.ext.couchdb.CouchDBManager()
         manager.setup(self.app)
         with self.app.test_request_context('/'):
             self.app.preprocess_request()
@@ -139,7 +140,7 @@ class TestFlaskextCouchDB(object):
             post.id = 'hello'
             post.store()
             del post
-            assert 'hello' in flask.g.couch
+            assert 'hello' in flask.g.couch.db
             post = BlogPost.load('hello')
             assert isinstance(post, BlogPost)
             assert post.id == 'hello'
@@ -147,7 +148,7 @@ class TestFlaskextCouchDB(object):
             assert post.doc_type == 'blogpost'
     
     def test_loading_nonexistent(self):
-        manager = flaskext.couchdb.CouchDBManager()
+        manager = flask.ext.couchdb.CouchDBManager()
         manager.setup(self.app)
         with self.app.test_request_context('/'):
             self.app.preprocess_request()
@@ -155,7 +156,7 @@ class TestFlaskextCouchDB(object):
             assert post is None
     
     def test_running_document_views(self):
-        manager = flaskext.couchdb.CouchDBManager()
+        manager = flask.ext.couchdb.CouchDBManager()
         manager.add_document(BlogPost)
         manager.setup(self.app)
         manager.sync(self.app)
@@ -167,8 +168,8 @@ class TestFlaskextCouchDB(object):
             assert all(r.author == 'Steve Person' for r in steve_res)
     
     def test_running_standalone_views(self):
-        manager = flaskext.couchdb.CouchDBManager()
-        viewdef = flaskext.couchdb.ViewDefinition('tests', 'active', '''\
+        manager = flask.ext.couchdb.CouchDBManager()
+        viewdef = flask.ext.couchdb.ViewDefinition('tests', 'active', '''\
             function (doc) {
                 if (doc.active) {
                     emit(doc.username, doc.fullname)
@@ -180,7 +181,7 @@ class TestFlaskextCouchDB(object):
         with self.app.test_request_context('/'):
             self.app.preprocess_request()
             for d in SAMPLE_DATA:
-                flask.g.couch.save(d)
+                flask.g.couch.db.save(d)
             results = tuple(viewdef())
             assert len(results) == 2
             goal = ['fred', 'steve']
@@ -192,7 +193,7 @@ class TestFlaskextCouchDB(object):
     
     def test_autosync(self):
         track = []
-        manager = flaskext.couchdb.CouchDBManager()
+        manager = flask.ext.couchdb.CouchDBManager()
         manager.on_sync(lambda db: track.append('synced'))
         manager.setup(self.app)
         with self.app.test_request_context('/'):
@@ -201,7 +202,7 @@ class TestFlaskextCouchDB(object):
     
     def test_manual_sync(self):
         track = []
-        manager = flaskext.couchdb.CouchDBManager(auto_sync=False)
+        manager = flask.ext.couchdb.CouchDBManager(auto_sync=False)
         manager.on_sync(lambda db: track.append('synced'))
         manager.setup(self.app)
         manager.sync(self.app)
@@ -212,17 +213,17 @@ class TestFlaskextCouchDB(object):
             assert 'synced' not in track
     
     def test_paging_all(self):
-        paginate = flaskext.couchdb.paginate
-        manager = flaskext.couchdb.CouchDBManager()
+        paginate = flask.ext.couchdb.paginate
+        manager = flask.ext.couchdb.CouchDBManager()
         manager.add_document(BlogPost)
         manager.setup(self.app)
         manager.sync(self.app)
         with self.app.test_request_context('/'):
             self.app.preprocess_request()
-            flask.g.couch.update(POSTS_FOR_PAGINATION)
+            flask.g.couch.db.update(POSTS_FOR_PAGINATION)
             
             page1 = paginate(BlogPost.all_posts(), 5)
-            assert isinstance(page1, flaskext.couchdb.Page)
+            assert isinstance(page1, flask.ext.couchdb.Page)
             assert len(page1.items) == 5
             assert isinstance(page1.items[0], BlogPost)
             assert page1.items[0].id == '0001'
@@ -230,7 +231,7 @@ class TestFlaskextCouchDB(object):
             assert isinstance(page1.next, basestring)
             
             page2 = paginate(BlogPost.all_posts(), 5, page1.next)
-            assert isinstance(page2, flaskext.couchdb.Page)
+            assert isinstance(page2, flask.ext.couchdb.Page)
             assert len(page2.items) == 5
             assert isinstance(page2.items[0], BlogPost)
             assert page2.items[0].id == '0006'
@@ -241,3 +242,5 @@ class TestFlaskextCouchDB(object):
     def test_paging_keys(self):
         pass
 
+if __name__ == '__main__':
+   unittest.main()

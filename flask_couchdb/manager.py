@@ -16,6 +16,7 @@ import itertools
 import couchdb
 from couchdb.design import ViewDefinition as CouchDBViewDefinition
 from flask import g, current_app
+from flask import _app_ctx_stack as stack
 
 __all__ = ['CouchDBManager']
 
@@ -30,7 +31,7 @@ class CouchDBManager(object):
     :param auto_sync: Whether to automatically sync the database every
                       request. (Defaults to `True`.)
     """
-    def __init__(self, auto_sync=True):
+    def __init__(self, app=None, auto_sync=True):
         self.auto_sync = auto_sync
         self.dc_viewdefs = {}
         self.general_viewdefs = []
@@ -38,7 +39,11 @@ class CouchDBManager(object):
         self.server_url = None
         self.db_name = None
         self.server = None
-        self.db = None
+        self._db = None
+        self.is_setup = False
+        self.app = app
+        if self.app is not None:
+           self.init_app(app)
     
     def all_viewdefs(self):
         """
@@ -135,11 +140,11 @@ class CouchDBManager(object):
         If not, the default database will be used, thus avoiding unnecessary
         HEAD transactions to the couchdb server.
         """
-        assert self.db is not None
+        assert self._db is not None
         server_url = self.server_url
         db_name = self.db_name
         server = self.server
-        db = self.db
+        db = self._db
         update_db = False
 
         if app is not None:
@@ -151,11 +156,16 @@ class CouchDBManager(object):
            update_db = True
 
         if db_name != self.db_name or update_db:
-           if db_name not in server:
-              db = server.create(db_name)
-           else:
-              db = server[db_name]
+           db = self.get_or_create_db(db_name, server)
 
+        return db
+
+    def get_or_create_db(self, db_name, server=None):
+        server = server or self.server
+        if db_name not in server:
+           db = server.create(db_name)
+        else:
+           db = server[db_name]
         return db
 
     def setup(self, app):
@@ -169,21 +179,29 @@ class CouchDBManager(object):
         self.server_url = app.config.get('COUCHDB_SERVER','http://localhost:5984/')
         self.db_name = app.config.get('COUCHDB_DATABASE', app.name.lower())
         self.server = couchdb.Server(self.server_url)
-        if self.db_name not in self.server:
-           self.db = self.server.create(self.db_name)
-        else:
-           self.db = self.server[self.db_name]
+        self._db = self.get_or_create_db(self.db_name)
         
+
+    def init_app(self, app):
         app.before_request(self.request_start)
-        app.after_request(self.request_end)
-    
+        #pp.after_request(self.request_end)
+
     def request_start(self):
-        if self.auto_sync and not current_app.config.get('DISABLE_AUTO_SYNC'):
+        if self.is_setup and self.auto_sync and not current_app.config.get('DISABLE_AUTO_SYNC'):
             self.sync(current_app)
-        g.couch = self.connect_db(current_app)
+        #g.couch = self.connect_db(current_app)
+        g.couch = self
     
     def request_end(self, response):
         del g.couch
         return response
 
-
+    @property
+    def db(self):
+        ctx = stack.top
+        if ctx is not None:
+           if not hasattr(ctx, 'couch'):
+              self.setup(current_app)
+              self.sync(current_app)
+              ctx.couch = self 
+           return ctx.couch.connect_db()

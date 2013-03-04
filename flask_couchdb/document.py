@@ -28,7 +28,7 @@ class Document(mapping.Document):
     def load(cls, id, db=None, **kwargs):
         """
         This is used to retrieve a specific document from the database. If a
-        database is not given, the thread-local database (``g.couch``) is
+        database is not given, the thread-local database (``g.couch.db``) is
         used. 
         
         For compatibility with code used to the parameter ordering used in the
@@ -40,14 +40,14 @@ class Document(mapping.Document):
         """
         if isinstance(id, couchdb.Database):
             id, db = db, id
-        return super(Document, cls).load(db or g.couch, id, **kwargs)
+        return super(Document, cls).load(db or g.couch.db, id, **kwargs)
     
     def store(self, db=None, validate=True):
         """
         This saves the document to the database. If a database is not given,
-        the thread-local database (``g.couch``) is used.
+        the thread-local database (``g.couch.db``) is used.
         
         :param db: The database to use. Optional.
         """
-        return mapping.Document.store(self, db or g.couch, validate)
+        return mapping.Document.store(self, db or g.couch.db, validate)
 

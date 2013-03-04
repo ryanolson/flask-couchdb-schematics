@@ -8,12 +8,12 @@ class ViewDefinition(CouchDBViewDefinition):
     def __call__(self, db=None, **options):
         """
         This executes the view with the given database. If a database is not
-        given, the thread-local database (``g.couch``) is used.
+        given, the thread-local database (``g.couch.db``) is used.
         
         :param db: The database to use, if necessary.
         :param options: Options to pass to the view.
         """
-        return super(ViewDefinition, self).__call__(db or g.couch, **options)
+        return super(ViewDefinition, self).__call__(db or g.couch.db, **options)
 #       return CouchDBViewDefinition.__call__(self, db or g.couch, **options)
     
     def __getitem__(self, item):
