@@ -8,25 +8,28 @@ Python objects.
 
 from setuptools import setup
 
+test_requirements=[
+    'pytest'
+]
+
 setup(
-    name='Flask-CouchDB',
-    version='2.0.0dev',
-    url='http://bitbucket.org/leafstorm/flask-couchdb/',
+    name='Flask-CouchDB-Schematics',
+    version='0.1.0-beta',
+    url='http://github.com/ryanolson/flask-couchdb-schematics/',
     license='MIT',
-    description='Provides utilities for using CouchDB with Flask',
+    description='Provides utilities for using CouchDB + Schematics with Flask',
     packages=['flask_couchdb'],
     zip_safe=False,
     include_package_data=True,
     platforms='any',
-    dependency_links = [
-        'http://github.com/ryanolson/couchdb-python/tarball/master#egg=couchdb-python-2.0.0dev'
-    ],
     install_requires=[
         'Flask',
-        'couchdb-python>=2.0.0dev'
+        'couchdb-schematics'
+    ] + test_requirements,
+    dependency_links = [
+        'https://github.com/ryanolson/couchdb-schematics/tarball/master#egg=couchdb-schematics'
     ],
-    tests_require='nose',
-    test_suite='nose.collector',
+    tests_require = test_requirements,
     classifiers=[
         'Development Status :: 4 - Beta',
         'Environment :: Web Environment',

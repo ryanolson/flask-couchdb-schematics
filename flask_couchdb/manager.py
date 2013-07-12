@@ -18,40 +18,42 @@ from couchdb.design import ViewDefinition as CouchDBViewDefinition
 from flask import g, current_app
 from flask import _app_ctx_stack as stack
 
-__all__ = ['CouchDBManager']
+__all__ = ['CouchDB']
 
 
 ### The manager class
 
-class CouchDBManager(object):
+class CouchDB(object):
     """
     This manages connecting to the database every request and synchronizing
     the view definitions to it.
     
     :param auto_sync: Whether to automatically sync the database every
-                      request. (Defaults to `True`.)
+                      request. (Defaults to `False`.)
     """
-    def __init__(self, app=None, auto_sync=True):
-        self.auto_sync = auto_sync
-        self.dc_viewdefs = {}
+    def __init__(self, app=None, server=None, db=None):
+        self.doc_viewdefs = {}
         self.general_viewdefs = []
         self.sync_callbacks = []
-        self.server_url = None
-        self.db_name = None
-        self.server = None
-        self._db = None
-        self.is_setup = False
+        self.db = db
+        self.server = server
         self.app = app
         if self.app is not None:
            self.init_app(app)
     
+    def init_app(self, app):
+        app.before_request(self.request_start)
+
+    def request_start(self):
+        g.couch = self
+
     def all_viewdefs(self):
         """
         This iterates through all the view definitions registered generally
         and the ones on specific document classes.
         """
         return itertools.chain(self.general_viewdefs,
-                               *self.dc_viewdefs.itervalues())
+                               *self.doc_viewdefs.itervalues())
     
     def add_document(self, dc):
         """
@@ -66,7 +68,7 @@ class CouchDBManager(object):
             if isinstance(item, CouchDBViewDefinition):
                 viewdefs.append(item)
         if viewdefs:
-            self.dc_viewdefs[dc] = viewdefs
+            self.doc_viewdefs[dc] = viewdefs
     
     def add_viewdef(self, viewdef):
         """
@@ -108,7 +110,10 @@ class CouchDBManager(object):
         
         :param app: The app to get the settings from.
         """
-        return self._db_for_app(app)
+        if self.db: return self.db
+        self.server = couchdb.Server( app.config['COUCHDB_SERVER'] )
+        self.db = self.server[ app.config['COUCHDB_DATABASE'] ]
+        return self.db
     
     def sync(self, app=None):
         """
@@ -123,8 +128,7 @@ class CouchDBManager(object):
         
         :param app: The application to synchronize with.
         """
-        db = self._db_for_app(app)
-
+        db = self.db
         CouchDBViewDefinition.sync_many(
             db, tuple(self.all_viewdefs()),
             callback=getattr(self, 'update_design_doc', None)
@@ -132,76 +136,3 @@ class CouchDBManager(object):
         for callback in self.sync_callbacks:
             callback(db)
 
-    def _db_for_app(self,app):
-        """
-        If app has a different server/db configuration than what was used in
-        setup, the database will be setup on the requested server.
-
-        If not, the default database will be used, thus avoiding unnecessary
-        HEAD transactions to the couchdb server.
-        """
-        assert self._db is not None
-        server_url = self.server_url
-        db_name = self.db_name
-        server = self.server
-        db = self._db
-        update_db = False
-
-        if app is not None:
-           server_url = app.config['COUCHDB_SERVER']
-           db_name = app.config['COUCHDB_DATABASE']
-
-        if server_url != self.server_url:
-           server = couchdb.Server(server_url)
-           update_db = True
-
-        if db_name != self.db_name or update_db:
-           db = self.get_or_create_db(db_name, server)
-
-        return db
-
-    def get_or_create_db(self, db_name, server=None):
-        server = server or self.server
-        if db_name not in server:
-           db = server.create(db_name)
-        else:
-           db = server[db_name]
-        return db
-
-    def setup(self, app):
-        """
-        This method sets up the request/response handlers needed to connect to
-        the database on every request.
-        
-        :param app: The application to set up.
-        """
-
-        self.server_url = app.config.get('COUCHDB_SERVER','http://localhost:5984/')
-        self.db_name = app.config.get('COUCHDB_DATABASE', app.name.lower())
-        self.server = couchdb.Server(self.server_url)
-        self._db = self.get_or_create_db(self.db_name)
-        
-
-    def init_app(self, app):
-        app.before_request(self.request_start)
-        #pp.after_request(self.request_end)
-
-    def request_start(self):
-        if self.is_setup and self.auto_sync and not current_app.config.get('DISABLE_AUTO_SYNC'):
-            self.sync(current_app)
-        #g.couch = self.connect_db(current_app)
-        g.couch = self
-    
-    def request_end(self, response):
-        del g.couch
-        return response
-
-    @property
-    def db(self):
-        ctx = stack.top
-        if ctx is not None:
-           if not hasattr(ctx, 'couch'):
-              self.setup(current_app)
-              self.sync()
-              ctx.couch = self 
-           return ctx.couch.connect_db()

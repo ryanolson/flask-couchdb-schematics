@@ -12,14 +12,16 @@ CouchDB database server easier.
 
 """
 
-from flask_couchdb.manager import CouchDBManager
+from flask_couchdb.manager import CouchDB
 from flask_couchdb.views import ViewDefinition, ViewField
 from flask_couchdb.pagination import Page, Row, paginate 
 from flask_couchdb.document import *
 from flask_couchdb.document import __all__ as document_all
+import flask_couchdb.schematics_document as schematics_document
 
-
-__all__ = ['CouchDBManager', 'ViewDefinition', 'ViewField', 'Row', 'paginate']
+__all__ = ['CouchDB', 'ViewDefinition', 'ViewField', 'Row', 'paginate', 'schematics_document']
 __all__.extend( document_all )
 
 
+version_info = ('0', '1', '0', 'beta')
+__version__ = '{}.{}.{}-{}'.format(*version_info)

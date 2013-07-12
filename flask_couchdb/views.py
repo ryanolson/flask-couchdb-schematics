@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from couchdb.design import ViewDefinition as CouchDBViewDefinition
-from couchdb.old_mapping import ViewField as CouchDBViewField
+from couchdb.design import ViewDefinition as OldViewDefinition
+from couchdb.mapping import ViewField as OldViewField
 from flask import g
 
-class ViewDefinition(CouchDBViewDefinition):
+class ViewDefinition(OldViewDefinition):
     def __call__(self, db=None, **options):
         """
         This executes the view with the given database. If a database is not
@@ -14,7 +14,6 @@ class ViewDefinition(CouchDBViewDefinition):
         :param options: Options to pass to the view.
         """
         return super(ViewDefinition, self).__call__(db or g.couch.db, **options)
-#       return CouchDBViewDefinition.__call__(self, db or g.couch, **options)
     
     def __getitem__(self, item):
         """
@@ -36,11 +35,10 @@ class ViewDefinition(CouchDBViewDefinition):
 # only overridden so it will use our ViewDefinition
 # this should be transparent to the user
 
-class ViewField(CouchDBViewField):
+class ViewField(OldViewField):
     def __get__(self, instance, cls=None):
         wrapper = super(ViewField, self).__get__(instance, cls).wrapper
         return ViewDefinition(self.design, self.name, self.map_fun,
                               self.reduce_fun, language=self.language,
                               wrapper=wrapper, **self.defaults)
-
 

@@ -1,34 +1,40 @@
 # -*- coding: utf-8 -*-
 
-
+from flask import g
+from couchdb.mapping import (Field, TextField, FloatField, IntegerField,
+                             LongField, BooleanField, DecimalField, DateField,
+                             DateTimeField, TimeField, DictField, ListField,
+                             Mapping, DEFAULT)
 import couchdb
 import couchdb.mapping as mapping
 
-from flask import g
-
-from schematics.models import Model
-from schematics.types.base import *
-from schematics.types.compound import *
-from schematics.serialize import *
-from schematics.validation import validate_instance, validate_instance as validate_document
-
-from schematics.types.base import __all__ as base_all
-from schematics.types.compound import __all__ as compound_all
-from schematics.serialize import __all__ as serialize_all
-
-
-__all__ = ["Document", "Model", "validate_instance", "validate_document"]
-__all__.extend(base_all)
-__all__.extend(compound_all)
-__all__.extend(serialize_all)
+__all__ = ["Document"]
+mapping.__all__.remove('ViewField')
+__all__.extend(mapping.__all__)
 
 class Document(mapping.Document):
-
+    """
+    This class can be used to represent a single "type" of document. You can
+    use this to more conveniently represent a JSON structure as a Python
+    object in the style of an object-relational mapper.
+    
+    You populate a class with instances of `Field` for all the attributes you
+    want to use on the class. In addition, if you set the `doc_type`
+    attribute on the class, every document will have a `doc_type` field
+    automatically attached to it with that value. That way, you can tell
+    different document types apart in views.
+    """
+    def __init__(self, *args, **kwargs):
+        mapping.Document.__init__(self, *args, **kwargs)
+        cls = type(self)
+        if hasattr(cls, 'doc_type'):
+            self._data['doc_type'] = cls.doc_type
+    
     @classmethod
-    def load(cls, id, db=None, **kwargs):
+    def load(cls, id, db=None):
         """
         This is used to retrieve a specific document from the database. If a
-        database is not given, the thread-local database (``g.couch.db``) is
+        database is not given, the thread-local database (``g.couch``) is
         used. 
         
         For compatibility with code used to the parameter ordering used in the
@@ -40,14 +46,14 @@ class Document(mapping.Document):
         """
         if isinstance(id, couchdb.Database):
             id, db = db, id
-        return super(Document, cls).load(db or g.couch.db, id, **kwargs)
+        return super(Document, cls).load(db or g.couch.db, id)
     
-    def store(self, db=None, validate=True):
+    def store(self, db=None):
         """
         This saves the document to the database. If a database is not given,
-        the thread-local database (``g.couch.db``) is used.
+        the thread-local database (``g.couch``) is used.
         
         :param db: The database to use. Optional.
         """
-        return mapping.Document.store(self, db or g.couch.db, validate)
+        return mapping.Document.store(self, db or g.couch.db)
 

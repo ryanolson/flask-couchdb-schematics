@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from schematics.base import json
+from flask import json
 from couchdb.client import ViewResults, Row
 from couchdb.design import ViewDefinition as CouchDBViewDefinition
 
