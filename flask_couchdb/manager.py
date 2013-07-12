@@ -112,9 +112,17 @@ class CouchDB(object):
         """
         if self.db: return self.db
         self.server = couchdb.Server( app.config['COUCHDB_SERVER'] )
-        self.db = self.server[ app.config['COUCHDB_DATABASE'] ]
+        self.db = self.get_or_create_db( app.config['COUCHDB_DATABASE'] )
         return self.db
-    
+
+    def get_or_create_db(self, db_name, server=None):
+        server = server or self.server
+        if db_name not in server:
+           db = server.create(db_name)
+        else:
+           db = server[db_name]
+        return db
+
     def sync(self, app=None):
         """
         This syncs the database for the given app. It will first make sure the
