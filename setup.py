@@ -14,7 +14,7 @@ test_requirements=[
 
 setup(
     name='Flask-CouchDB-Schematics',
-    version='0.1.0-beta',
+    version='1.0.0',
     author="Ryan Olson",
     author_email="rmolson@gmail.com",
     url='http://github.com/ryanolson/flask-couchdb-schematics/',
