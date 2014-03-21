@@ -64,9 +64,12 @@ class CouchDB(object):
         """
         viewdefs = []
         for name in dir(dc):
-            item = getattr(dc, name)
-            if isinstance(item, CouchDBViewDefinition):
-                viewdefs.append(item)
+            try:
+                item = getattr(dc, name)
+                if isinstance(item, CouchDBViewDefinition):
+                    viewdefs.append(item)
+            except:
+                pass
         if viewdefs:
             self.doc_viewdefs[dc] = viewdefs
     
