@@ -24,8 +24,10 @@ class Document(mapping.Document):
     automatically attached to it with that value. That way, you can tell
     different document types apart in views.
     """
-    def __init__(self, *args, **kwargs):
-        mapping.Document.__init__(self, *args, **kwargs)
+    def __init__(self, raw_data=None):
+        if raw_data is None:
+            raw_data = {}
+        mapping.Document.__init__(self, **raw_data)
         cls = type(self)
         if hasattr(cls, 'doc_type'):
             self._data['doc_type'] = cls.doc_type
