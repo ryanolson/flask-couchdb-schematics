@@ -27,7 +27,6 @@ setup(
         'couchdb-schematics'
     ] + test_requirements,
     dependency_links = [
-        'https://github.com/ryanolson/couchdb-schematics/tarball/master#egg=couchdb-schematics'
     ],
     tests_require = test_requirements,
     classifiers=[
