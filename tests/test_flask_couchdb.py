@@ -65,14 +65,14 @@ SAMPLE_DATA = [
 
 
 SAMPLE_POSTS = [
-    BlogPost(title='N1', text='number 1', author='Steve Person', id='1'),
-    BlogPost(title='N2', text='number 2', author='Fred Person', id='2'),
-    BlogPost(title='N3', text='number 3', author='Steve Person', id='3')
+    BlogPost(dict(title='N1', text='number 1', author='Steve Person', id='1')),
+    BlogPost(dict(title='N2', text='number 2', author='Fred Person', id='2')),
+    BlogPost(dict(title='N3', text='number 3', author='Steve Person', id='3'))
 ]
 
 POSTS_FOR_PAGINATION = [
-    BlogPost(title='N%d' % n, text='number %d' % n, author='Foo',
-             id='%04d' % n) for n in range(1, 51)
+    BlogPost(dict(title='N%d' % n, text='number %d' % n, author='Foo',
+             id='%04d' % n)) for n in range(1, 51)
 ]
 
 
@@ -118,8 +118,8 @@ class TestFlaskCouchDB(testutil.TempDatabaseMixin, unittest.TestCase):
     def test_documents(self):
         with self.app.test_request_context('/'):
             self.app.preprocess_request()
-            post = BlogPost(title='Hello', text='Hello, world!',
-                            author='Steve Person')
+            post = BlogPost(dict(title='Hello', text='Hello, world!',
+                            author='Steve Person'))
             post.id = 'hello'
             post.store()
             del post

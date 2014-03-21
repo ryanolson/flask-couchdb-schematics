@@ -46,3 +46,6 @@ class Document(SchematicsDocument):
         """
         return super(Document,self).store(db or g.couch.db, validate)
 
+    def delete_instance(self, db=None):
+        super(Document, self).delete_instance(db or g.couch.db)
+
