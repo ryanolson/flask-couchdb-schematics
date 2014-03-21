@@ -21,7 +21,7 @@ setup(
     license='MIT',
     description='Provides utilities for using CouchDB + Schematics with Flask',
     packages=['flask_couchdb'],
-    zip_safe=False,
+    zip_safe=True,
     include_package_data=True,
     platforms='any',
     install_requires=[
